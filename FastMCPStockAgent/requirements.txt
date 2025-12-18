@@ -1,0 +1,8 @@
+fastmcp
+yfinance
+pandas
+numpy
+xgboost
+scikit-learn
+joblib
+python-dateutil
