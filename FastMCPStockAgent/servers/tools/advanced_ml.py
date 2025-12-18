@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
-from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.arima.model import ARIMA # type: ignore
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
