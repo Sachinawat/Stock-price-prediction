@@ -1,43 +1,139 @@
+# import yfinance as yf
+# import pandas as pd
+# from datetime import datetime, timedelta
+
+# def get_ticker_from_name(company_name: str) -> str:
+#     """
+#     Maps company names to NSE tickers (Indian Market).
+#     """
+#     # 1. Common Mapping for Indian Giants
+#     mapping = {
+#         "reliance": "RELIANCE.NS", "tcs": "TCS.NS", "infosys": "INFY.NS",
+#         "hdfc": "HDFCBANK.NS", "icici": "ICICIBANK.NS", "sbi": "SBIN.NS",
+#         "tata motors": "TATAMOTORS.NS", "zomato": "ZOMATO.NS",
+#         "paytm": "PAYTM.NS", "adani": "ADANIENT.NS"
+#     }
+    
+#     clean_name = company_name.lower().replace(" bank", "").strip()
+    
+#     if clean_name in mapping:
+#         return mapping[clean_name]
+    
+#     # 2. If not found, assume user input is the symbol and append .NS
+#     return f"{company_name.upper()}.NS"
+
+# def fetch_historical_data(ticker: str, period="5y") -> pd.DataFrame:
+#     stock = yf.Ticker(ticker)
+#     df = stock.history(period=period)
+    
+#     if df.empty:
+#         return None
+        
+#     df.reset_index(inplace=True)
+#     # Remove Timezone info for compatibility
+#     df['Date'] = df['Date'].dt.tz_localize(None) 
+#     return df
+
+# def get_current_price(ticker: str) -> float:
+#     stock = yf.Ticker(ticker)
+#     # Fast fetch of today's data
+#     df = stock.history(period="1d")
+#     if not df.empty:
+#         return df['Close'].iloc[-1]
+#     return 0.0
+
+
+
+
+
+
+
+
+
 import yfinance as yf
 import pandas as pd
-from datetime import datetime, timedelta
+import requests
+from datetime import datetime
 
-def get_ticker_from_name(company_name: str) -> str:
+def search_indian_ticker(query: str) -> str:
     """
-    Maps company names to NSE tickers (Indian Market).
+    Uses Yahoo Finance API to find the correct Indian Ticker (.NS or .BO).
+    Handles names like 'Reliance' -> 'RELIANCE.NS', 'Infosys' -> 'INFY.NS'.
     """
-    # 1. Common Mapping for Indian Giants
-    mapping = {
-        "reliance": "RELIANCE.NS", "tcs": "TCS.NS", "infosys": "INFY.NS",
-        "hdfc": "HDFCBANK.NS", "icici": "ICICIBANK.NS", "sbi": "SBIN.NS",
-        "tata motors": "TATAMOTORS.NS", "zomato": "ZOMATO.NS",
-        "paytm": "PAYTM.NS", "adani": "ADANIENT.NS"
+    print(f"🔎 Searching database for '{query}'...")
+    
+    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=10&newsCount=0"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0'
     }
     
-    clean_name = company_name.lower().replace(" bank", "").strip()
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        data = response.json()
+        
+        if 'quotes' in data and len(data['quotes']) > 0:
+            for quote in data['quotes']:
+                symbol = quote.get('symbol', '')
+                shortname = quote.get('shortname', '').lower()
+                
+                # Priority 1: National Stock Exchange (NSE)
+                if symbol.endswith('.NS'):
+                    return symbol
+                
+                # Priority 2: Bombay Stock Exchange (BSE)
+                if symbol.endswith('.BO'):
+                    return symbol
+                    
+    except Exception as e:
+        print(f"Search API Warning: {e}")
+        
+    return None
+
+def get_ticker_from_name(company_name: str) -> str:
+    # 1. Manual Map for common tricky ones (Optional but faster)
+    mapping = {
+        "reliance": "RELIANCE.NS",
+        "tcs": "TCS.NS",
+        "infosys": "INFY.NS", # Note: Ticker is INFY, not INFOSYS
+        "wipro": "WIPRO.NS",
+        "hcl": "HCLTECH.NS",
+        "sbi": "SBIN.NS",
+        "zomato": "ZOMATO.NS"
+    }
     
+    clean_name = company_name.lower().strip()
     if clean_name in mapping:
         return mapping[clean_name]
+        
+    # 2. Run Smart Search
+    found_ticker = search_indian_ticker(company_name)
     
-    # 2. If not found, assume user input is the symbol and append .NS
-    return f"{company_name.upper()}.NS"
+    # 3. If found, return it. If not, try a blind guess (Upper + .NS)
+    if found_ticker:
+        return found_ticker
+        
+    print("⚠️ Search failed, attempting blind guess...")
+    return f"{company_name.upper().replace(' ', '')}.NS"
 
 def fetch_historical_data(ticker: str, period="5y") -> pd.DataFrame:
-    stock = yf.Ticker(ticker)
-    df = stock.history(period=period)
-    
-    if df.empty:
-        return None
+    try:
+        stock = yf.Ticker(ticker)
+        df = stock.history(period=period)
         
-    df.reset_index(inplace=True)
-    # Remove Timezone info for compatibility
-    df['Date'] = df['Date'].dt.tz_localize(None) 
-    return df
+        if df.empty:
+            return None
+            
+        df.reset_index(inplace=True)
+        df['Date'] = df['Date'].dt.tz_localize(None) 
+        return df
+    except Exception:
+        return None
 
-def get_current_price(ticker: str) -> float:
+def get_specific_historical_price(ticker: str, date_str: str) -> float:
+    # (Same as before)
     stock = yf.Ticker(ticker)
-    # Fast fetch of today's data
-    df = stock.history(period="1d")
-    if not df.empty:
-        return df['Close'].iloc[-1]
-    return 0.0
+    start_date = datetime.strptime(date_str, "%Y-%m-%d")
+    end_date = datetime.strptime(date_str, "%Y-%m-%d") + pd.Timedelta(days=1)
+    df = stock.history(start=start_date, end=end_date)
+    if df.empty: return None
+    return df['Close'].iloc[0]
