@@ -6,3 +6,7 @@ xgboost
 scikit-learn
 joblib
 python-dateutil
+tensorflow 
+statsmodels
+requests 
+beautifulsoup4

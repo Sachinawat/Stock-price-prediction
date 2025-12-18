@@ -3,31 +3,41 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 def get_ticker_from_name(company_name: str) -> str:
-    """Simple mapping or search. For production, use a search API."""
-    # Simplified for demo. In real app, use yf.Ticker search
+    """
+    Maps company names to NSE tickers (Indian Market).
+    """
+    # 1. Common Mapping for Indian Giants
     mapping = {
-        "apple": "AAPL", "microsoft": "MSFT", "tesla": "TSLA",
-        "google": "GOOGL", "nvidia": "NVDA", "amazon": "AMZN"
+        "reliance": "RELIANCE.NS", "tcs": "TCS.NS", "infosys": "INFY.NS",
+        "hdfc": "HDFCBANK.NS", "icici": "ICICIBANK.NS", "sbi": "SBIN.NS",
+        "tata motors": "TATAMOTORS.NS", "zomato": "ZOMATO.NS",
+        "paytm": "PAYTM.NS", "adani": "ADANIENT.NS"
     }
-    return mapping.get(company_name.lower(), company_name.upper())
+    
+    clean_name = company_name.lower().replace(" bank", "").strip()
+    
+    if clean_name in mapping:
+        return mapping[clean_name]
+    
+    # 2. If not found, assume user input is the symbol and append .NS
+    return f"{company_name.upper()}.NS"
 
-def fetch_historical_data(ticker: str, period="2y") -> pd.DataFrame:
-    """Fetches OHLCV data."""
+def fetch_historical_data(ticker: str, period="5y") -> pd.DataFrame:
     stock = yf.Ticker(ticker)
     df = stock.history(period=period)
-    df.reset_index(inplace=True)
-    # Ensure date is timezone naive for compatibility
-    df['Date'] = df['Date'].dt.tz_localize(None)
-    return df
-
-def get_specific_historical_price(ticker: str, date_str: str) -> float:
-    """Gets exact close price for a past date."""
-    stock = yf.Ticker(ticker)
-    # Fetch a small window around the date to ensure we catch it
-    start_date = datetime.strptime(date_str, "%Y-%m-%d")
-    end_date = start_date + timedelta(days=1)
     
-    df = stock.history(start=start_date, end=end_date)
     if df.empty:
         return None
-    return df['Close'].iloc[0]
+        
+    df.reset_index(inplace=True)
+    # Remove Timezone info for compatibility
+    df['Date'] = df['Date'].dt.tz_localize(None) 
+    return df
+
+def get_current_price(ticker: str) -> float:
+    stock = yf.Ticker(ticker)
+    # Fast fetch of today's data
+    df = stock.history(period="1d")
+    if not df.empty:
+        return df['Close'].iloc[-1]
+    return 0.0

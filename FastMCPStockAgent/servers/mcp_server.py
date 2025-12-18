@@ -7,79 +7,67 @@ root_dir = os.path.dirname(current_dir)
 sys.path.append(root_dir)
 
 from fastmcp import FastMCP
-from servers.tools import market_data, features, machine_learning
+from servers.tools import market_data, advanced_ml, scraper # <--- Added Scraper
 from datetime import datetime
 
-# Initialize FastMCP Server
 mcp = FastMCP("StockQuantAgent")
 
-# ==========================================
-# 🧠 CORE LOGIC (Pure Python - Callable)
-# ==========================================
 def stock_logic(company_name: str, date_str: str) -> str:
-    """
-    The actual business logic. Separated so it can be called by CLI or MCP.
-    """
-    # 1. Convert Name to Ticker
-    try:
-        ticker = market_data.get_ticker_from_name(company_name)
-    except Exception as e:
-        return f"Error connecting to tools: {str(e)}"
-        
-    if not ticker:
-        return f"Error: Could not find ticker for {company_name}"
+    # 1. Indian Ticker Lookup
+    ticker = market_data.get_ticker_from_name(company_name)
+    print(f"🇮🇳 Analyzing {ticker} (NSE/BSE)...")
 
-    print(f"📊 Analyzing {ticker} for date {date_str}...")
-
-    # 2. Check Dates
+    # 2. Date Check
     try:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return "❌ Error: Date must be in YYYY-MM-DD format."
-        
+    except ValueError: return "❌ Date format error."
     today = datetime.now().date()
+    days_ahead = (target_date - today).days
 
-    # 3. SCENARIO A: Historical Data (Past/Today)
-    if target_date <= today:
-        price = market_data.get_specific_historical_price(ticker, date_str)
-        if price:
-            return f"✅ ACTUAL Price for {ticker} on {date_str}: ${price:.2f}"
-        else:
-            return f"❌ No market data found for {ticker} on {date_str} (Weekend/Holiday?)"
+    # 3. GET DATA
+    df = market_data.fetch_historical_data(ticker, period="2y") # 2y is faster/enough
+    if df is None or len(df) < 50:
+        return f"❌ Could not fetch data for {ticker}. Check spelling."
 
-    # 4. SCENARIO B: Future Prediction (Machine Learning)
-    else:
-        print("🚀 Future date detected. Initializing AI Prediction pipeline...")
-        
-        # A. Get Data
-        raw_df = market_data.fetch_historical_data(ticker, period="5y")
-        
-        # B. Feature Engineering
-        processed_df = features.add_technical_indicators(raw_df)
-        
-        # C. Calculate Days to Forecast
-        days_ahead = (target_date - today).days
-        
-        if days_ahead > 365:
-            return "⚠️ Prediction too far in future. Please limit to 1 year."
+    current_price = df['Close'].iloc[-1]
 
-        # D. Run XGBoost Recursive Prediction
-        predicted_price = machine_learning.train_and_predict_recursive(processed_df, days_ahead)
-        
-        return (f"🤖 PREDICTED Price for {ticker} on {date_str} "
-                f"(+{days_ahead} days): ${predicted_price:.2f}\n"
-                f"Model: XGBoost Regressor | trained on {len(processed_df)} records.")
+    # --- SCENARIO A: PAST/TODAY ---
+    if days_ahead <= 0:
+        return f"✅ Current Price of {ticker}: ₹{current_price:.2f}"
 
-# ==========================================
-# 🔌 MCP INTERFACE (The Wrapper)
-# ==========================================
+    # --- SCENARIO B: FUTURE PREDICTION ---
+    if days_ahead > 365:
+        return "⚠️ Prediction limited to 1 year."
+
+    print("📊 1. Running Mathematical Models (LSTM/ARIMA)...")
+    best_model, results = advanced_ml.race_models_and_predict(df, days_ahead)
+    raw_prediction = results[best_model]['prediction']
+
+    print("🌍 2. Scraping News for Sentiment Adjustment...")
+    sentiment_data = scraper.analyze_sentiment_from_news(ticker)
+    sentiment_score = sentiment_data['score'] # e.g., +0.2 or -0.1
+    
+    # --- HYBRID CALCULATION ---
+    # We adjust the math prediction by the sentiment %
+    # If News is Good (+0.2), price gets a 2% boost.
+    adjusted_price = raw_prediction * (1 + sentiment_data['score'])
+
+    output = (
+        f"\n🇮🇳 **INDIAN MARKET PREDICTION: {ticker}**\n"
+        f"📅 Target: {date_str} (+{days_ahead} days)\n"
+        f"💰 **Current Price:** ₹{current_price:.2f}\n"
+        f"----------------------------------------\n"
+        f"🤖 **AI Model ({best_model}):** ₹{raw_prediction:.2f}\n"
+        f"📰 **News Sentiment:** {sentiment_data['summary']}\n"
+        f"   (Headlines: {sentiment_data.get('headlines', [])})\n"
+        f"----------------------------------------\n"
+        f"🎯 **FINAL ADJUSTED PRICE:** ₹{adjusted_price:.2f}\n"
+        f"----------------------------------------\n"
+    )
+    return output
+
 @mcp.tool()
 def get_stock_price(company_name: str, date_str: str) -> str:
-    """
-    Main Orchestrator exposed to AI Agents.
-    Input: Company Name (e.g., 'Apple') and Date ('YYYY-MM-DD').
-    """
-    # Simply call the core logic function
     return stock_logic(company_name, date_str)
 
 if __name__ == "__main__":
