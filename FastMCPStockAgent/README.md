@@ -74,4 +74,4 @@ Model: XGBoost Regressor | trained on N records.
 - Swap out the ML model in `machine_learning.py` for experimentation.
 
 ## License
-See LICENSE file.
+See LICENSE file
