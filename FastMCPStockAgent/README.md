@@ -59,9 +59,9 @@ Model: XGBoost Regressor | trained on N records.
 	 pip install -r FastMCPStockAgent/requirements.txt
 	 ```
 3. Run the CLI:
-	 ```
+	 
 	 python -m FastMCPStockAgent.clients.client
-	 ```
+	 
 
 ## Architecture
 - **FastMCP**: Orchestrates tools and exposes the main interface for agent integration.
