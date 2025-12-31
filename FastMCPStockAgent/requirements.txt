@@ -10,3 +10,4 @@ tensorflow
 statsmodels
 requests 
 beautifulsoup4
+pandas
