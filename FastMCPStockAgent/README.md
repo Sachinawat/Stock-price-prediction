@@ -5,7 +5,7 @@ This application predicts stock prices using a hybrid approach: it fetches actua
 
 ## Features
 - **Company Name to Ticker Mapping**: Enter a company name (e.g., "Apple") and the system maps it to its stock ticker (e.g., "AAPL").
-- **Historical Price Lookup**: Retrieves the actual closing price for a given date using Yahoo Finance data.
+- **Historical Price Lookup**: Retrieves the actual closing price for a given date using Yahoo Finance data
 - **Future Price Prediction**: For future dates (up to 1 year ahead), predicts the price using an XGBoost regression model trained on technical indicators and lag features.
 - **Command-Line Interface**: Simple CLI for user interaction.
 - **Modular Design**: Clean separation between data fetching, feature engineering, and machine learning logic.
