@@ -11,9 +11,9 @@ __pycache__/
 .Python
 
 
-dist/
+
 downloads/
-eggs/
+
 .eggs/
 lib/
 lib64/
